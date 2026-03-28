@@ -1,0 +1,97 @@
+{
+  "$schema": "https://vyges.com/schema/v1/vyges-metadata.schema.json",
+  "name": "vyges-rv-plic-lite",
+  "version": "0.1.0",
+  "description": "Lightweight RISC-V PLIC with native TL-UL interface. Supports up to 32 sources, 3-bit priority, claim/complete, single hart target.",
+  "category": "infrastructure",
+  "license": "Apache-2.0",
+  "owner": "Vyges Inc.",
+  "maturity": "development",
+  "created": "2026-03-28T01:34:10Z",
+  "updated": "2026-03-28T01:34:10Z",
+  "interfaces": [
+    {
+      "name": "tl_i / tl_o",
+      "type": "tl-ul",
+      "role": "device",
+      "description": "TileLink-UL slave port for register access"
+    },
+    {
+      "name": "intr_src_i",
+      "type": "irq-source-array",
+      "role": "sink",
+      "width": "NUM_SOURCES",
+      "description": "Level-sensitive interrupt source inputs (active-high)"
+    },
+    {
+      "name": "irq_o",
+      "type": "irq-output",
+      "role": "source",
+      "description": "Interrupt output to hart (asserted when any enabled source above threshold is pending)"
+    }
+  ],
+  "registers": [
+    {
+      "name": "PRIO",
+      "offset": "0x000",
+      "count": 32,
+      "stride": 4,
+      "access": "RW",
+      "width": 3,
+      "description": "Priority for source N (0=disabled, 7=highest)"
+    },
+    {
+      "name": "PENDING",
+      "offset": "0x080",
+      "access": "RO",
+      "width": 32,
+      "description": "Pending interrupt bitmap"
+    },
+    {
+      "name": "ENABLE",
+      "offset": "0x100",
+      "access": "RW",
+      "width": 32,
+      "description": "Interrupt enable bitmap"
+    },
+    {
+      "name": "THRESHOLD",
+      "offset": "0x200",
+      "access": "RW",
+      "width": 3,
+      "description": "Priority threshold — only sources with priority > threshold generate irq_o"
+    },
+    {
+      "name": "CLAIM_COMPLETE",
+      "offset": "0x204",
+      "access": "RW",
+      "width": 32,
+      "description": "Read returns highest-priority pending source ID (claim). Write signals completion for source ID."
+    }
+  ],
+  "parameters": [
+    {
+      "name": "NUM_SOURCES",
+      "type": "int unsigned",
+      "default": 32,
+      "range": "1..32",
+      "description": "Number of external interrupt sources"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "opentitan-tlul",
+      "version": ">=0.1.0",
+      "description": "Provides tlul_pkg with TL-UL type definitions (tl_h2d_t, tl_d2h_t, opcodes)"
+    }
+  ],
+  "trust": {
+    "provenance": "vyges-original",
+    "racl_required": false,
+    "lifecycle_required": false,
+    "notes": "No OpenTitan RACL or lifecycle dependencies. Standalone PLIC suitable for lightweight SoCs."
+  },
+  "rtl_files": [
+    "rtl/rv_plic_lite.sv"
+  ]
+}
