@@ -93,5 +93,8 @@
   },
   "rtl_files": [
     "rtl/rv_plic_lite.sv"
-  ]
+  ],
+  "branding": {
+    "display_name": "PLIC"
+  }
 }
