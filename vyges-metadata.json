@@ -59,7 +59,7 @@
       "offset": "0x200",
       "access": "RW",
       "width": 3,
-      "description": "Priority threshold — only sources with priority > threshold generate irq_o"
+      "description": "Priority threshold \u2014 only sources with priority > threshold generate irq_o"
     },
     {
       "name": "CLAIM_COMPLETE",
@@ -96,5 +96,32 @@
   ],
   "branding": {
     "display_name": "PLIC"
+  },
+  "integration": {
+    "soc_generator_hints": {
+      "top_module": "rv_plic_lite",
+      "clock": {
+        "port": "clk_i"
+      },
+      "reset": {
+        "port": "rst_ni",
+        "polarity": "active_low"
+      },
+      "bus_slave": {
+        "protocol": "TL-UL",
+        "ports": {
+          "tl_i": "tl_i",
+          "tl_o": "tl_o"
+        }
+      },
+      "interrupts": [],
+      "parameters": [
+        {
+          "name": "NUM_SOURCES",
+          "maps_to": "config.NUM_SOURCES",
+          "default": 32
+        }
+      ]
+    }
   }
 }
