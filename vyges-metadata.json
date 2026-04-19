@@ -72,28 +72,6 @@
       ]
     },
     {
-      "type": "bus",
-      "direction": "slave",
-      "protocol": "TL-UL",
-      "port": "tl_o",
-      "width": 1,
-      "description": "TL-UL device-to-host interface",
-      "signals": [
-        {
-          "name": "tl_i",
-          "direction": "input",
-          "type": "bus",
-          "description": "TL-UL host-to-device (tl_h2d_t struct)"
-        },
-        {
-          "name": "tl_o",
-          "direction": "output",
-          "type": "bus",
-          "description": "TL-UL device-to-host (tl_d2h_t struct)"
-        }
-      ]
-    },
-    {
       "type": "interrupt",
       "direction": "input",
       "protocol": "level-sensitive",
