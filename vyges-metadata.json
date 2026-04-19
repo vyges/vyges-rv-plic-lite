@@ -1,154 +1,159 @@
 {
   "$schema": "https://vyges.com/schema/v1/vyges-metadata.schema.json",
+  "x-version": "1.0.0",
   "name": "vyges-rv-plic-lite",
   "version": "0.1.0",
-  "description": "Lightweight RISC-V PLIC with native TL-UL interface. Supports up to 32 sources, 3-bit priority, claim/complete, single hart target.",
-  "category": "infrastructure",
+  "description": "Lightweight RISC-V Platform-Level Interrupt Controller (PLIC) with a native TL-UL slave interface, supporting up to 32 interrupt sources and a single hart target.",
   "license": "Apache-2.0",
-  "owner": "Vyges Inc.",
-  "maturity": "development",
-  "created": "2026-03-28T01:34:10Z",
-  "updated": "2026-03-28T01:34:10Z",
+  "maturity": "rtl_verified",
+  "target": [
+    "asic",
+    "fpga"
+  ],
+  "design_type": [
+    "digital"
+  ],
+  "created": "2026-03-28T01:51:59Z",
+  "updated": "2026-03-28T01:51:59Z",
+  "source": {
+    "type": "git",
+    "url": "https://github.com/vyges/vyges-rv-plic-lite",
+    "commit": "92153b24474ae56b54b54afd88bfe7f215e2ec52",
+    "ip_path": ".",
+    "private": false,
+    "containsEncryptedPayload": false,
+    "indexing": true
+  },
+  "maintainers": [
+    {
+      "name": "Vyges",
+      "email": "team@vyges.com",
+      "url": "https://vyges.com",
+      "github": "vyges"
+    }
+  ],
   "interfaces": [
     {
       "type": "clock",
-      "name": "clock",
-      "signals": [
-        {
-          "name": "clk_i",
-          "direction": "input",
-          "type": "clock",
-          "width": 1
-        }
-      ]
+      "direction": "input",
+      "protocol": "generic",
+      "port": "clk_i",
+      "width": 1,
+      "description": "Clock input signal"
     },
     {
       "type": "reset",
-      "name": "reset",
+      "direction": "input",
+      "protocol": "active-low",
+      "port": "rst_ni",
+      "width": 1,
+      "description": "Active-low reset signal"
+    },
+    {
+      "type": "bus",
+      "direction": "slave",
+      "protocol": "TL-UL",
+      "port": "tl_i",
+      "width": 1,
+      "description": "TL-UL host-to-device interface",
       "signals": [
         {
-          "name": "rst_ni",
+          "name": "tl_i",
           "direction": "input",
-          "type": "reset",
-          "width": 1,
-          "active_level": "low"
+          "type": "bus",
+          "description": "TL-UL host-to-device (tl_h2d_t struct)"
+        },
+        {
+          "name": "tl_o",
+          "direction": "output",
+          "type": "bus",
+          "description": "TL-UL device-to-host (tl_d2h_t struct)"
         }
       ]
     },
     {
-      "name": "tl_i / tl_o",
-      "type": "tl-ul",
-      "role": "device",
-      "description": "TileLink-UL slave port for register access"
+      "type": "bus",
+      "direction": "slave",
+      "protocol": "TL-UL",
+      "port": "tl_o",
+      "width": 1,
+      "description": "TL-UL device-to-host interface",
+      "signals": [
+        {
+          "name": "tl_i",
+          "direction": "input",
+          "type": "bus",
+          "description": "TL-UL host-to-device (tl_h2d_t struct)"
+        },
+        {
+          "name": "tl_o",
+          "direction": "output",
+          "type": "bus",
+          "description": "TL-UL device-to-host (tl_d2h_t struct)"
+        }
+      ]
     },
     {
-      "name": "intr_src_i",
-      "type": "irq-source-array",
-      "role": "sink",
-      "width": "NUM_SOURCES",
-      "description": "Level-sensitive interrupt source inputs (active-high)"
-    },
-    {
-      "name": "irq_o",
-      "type": "irq-output",
-      "role": "source",
-      "description": "Interrupt output to hart (asserted when any enabled source above threshold is pending)"
-    }
-  ],
-  "registers": [
-    {
-      "name": "PRIO",
-      "offset": "0x000",
-      "count": 32,
-      "stride": 4,
-      "access": "RW",
-      "width": 3,
-      "description": "Priority for source N (0=disabled, 7=highest)"
-    },
-    {
-      "name": "PENDING",
-      "offset": "0x080",
-      "access": "RO",
+      "type": "interrupt",
+      "direction": "input",
+      "protocol": "level-sensitive",
+      "port": "intr_src_i",
       "width": 32,
-      "description": "Pending interrupt bitmap"
+      "description": "Interrupt source inputs (active-high, level-sensitive)"
     },
     {
-      "name": "ENABLE",
-      "offset": "0x100",
-      "access": "RW",
-      "width": 32,
-      "description": "Interrupt enable bitmap"
-    },
-    {
-      "name": "THRESHOLD",
-      "offset": "0x200",
-      "access": "RW",
-      "width": 3,
-      "description": "Priority threshold \u2014 only sources with priority > threshold generate irq_o"
-    },
-    {
-      "name": "CLAIM_COMPLETE",
-      "offset": "0x204",
-      "access": "RW",
-      "width": 32,
-      "description": "Read returns highest-priority pending source ID (claim). Write signals completion for source ID."
+      "type": "interrupt",
+      "direction": "output",
+      "protocol": "level-sensitive",
+      "port": "irq_o",
+      "width": 1,
+      "description": "Interrupt output to hart"
     }
   ],
   "parameters": [
     {
       "name": "NUM_SOURCES",
-      "type": "int unsigned",
+      "type": "int",
       "default": 32,
-      "range": "1..32",
-      "description": "Number of external interrupt sources"
+      "description": "Number of external interrupt sources (1-32)"
     }
   ],
+  "performance": {},
+  "architecture": {
+    "type": "peripheral",
+    "features": [
+      "RISC-V Platform-Level Interrupt Controller (PLIC)",
+      "Native TL-UL slave interface",
+      "Supports up to 32 interrupt sources",
+      "Single hart target",
+      "3-bit priority per source",
+      "Priority threshold register",
+      "Interrupt pending and enable bitmaps",
+      "Claim/complete mechanism",
+      "Single-cycle TL-UL response"
+    ]
+  },
+  "asic": {
+    "flavor": "digital",
+    "technology": [
+      "sky130A"
+    ]
+  },
+  "fpga": {
+    "toolchain": [
+      "Vivado"
+    ],
+    "devices": [
+      "Artix-7"
+    ]
+  },
   "dependencies": [
     {
       "name": "opentitan-tlul",
-      "version": ">=0.1.0",
-      "description": "Provides tlul_pkg with TL-UL type definitions (tl_h2d_t, tl_d2h_t, opcodes)"
+      "type": "library",
+      "description": "Provides `tlul_pkg` (TL-UL type definitions and opcodes)"
     }
   ],
-  "trust": {
-    "provenance": "vyges-original",
-    "racl_required": false,
-    "lifecycle_required": false,
-    "notes": "No OpenTitan RACL or lifecycle dependencies. Standalone PLIC suitable for lightweight SoCs."
-  },
-  "rtl_files": [
-    "rtl/rv_plic_lite.sv"
-  ],
-  "branding": {
-    "display_name": "PLIC"
-  },
-  "integration": {
-    "soc_generator_hints": {
-      "top_module": "rv_plic_lite",
-      "clock": {
-        "port": "clk_i"
-      },
-      "reset": {
-        "port": "rst_ni",
-        "polarity": "active_low"
-      },
-      "bus_slave": {
-        "protocol": "TL-UL",
-        "ports": {
-          "tl_i": "tl_i",
-          "tl_o": "tl_o"
-        }
-      },
-      "interrupts": [],
-      "parameters": [
-        {
-          "name": "NUM_SOURCES",
-          "maps_to": "config.NUM_SOURCES",
-          "default": 32
-        }
-      ]
-    }
-  },
   "test": {
     "testbenches": [
       {
@@ -161,6 +166,47 @@
         "description": "SoC-level integration verified in edge-sensor-soc"
       }
     ],
+    "status": "upstream_passing",
     "coverage": "functional"
+  },
+  "documentation": {
+    "upstream": "https://github.com/vyges/vyges-rv-plic-lite"
+  },
+  "artifacts": {
+    "total_rtl_lines": 200
+  },
+  "categories": [
+    {
+      "main_category": "Processing Cores",
+      "sub_category": "RISC-V"
+    }
+  ],
+  "keywords": [
+    "RISC-V",
+    "PLIC",
+    "Interrupt Controller",
+    "TL-UL",
+    "Lightweight"
+  ],
+  "trust": {
+    "verification_level": "simulation_passing",
+    "tapeout_count": 0,
+    "fpga_validated": false,
+    "formal_verified": false,
+    "maintained": true,
+    "last_activity": "2026-03-28T01:51:59Z"
+  },
+  "meta": {
+    "template": {
+      "generator": "github-models-ai",
+      "template_version": "1.0.0",
+      "generated_at": "2026-03-28T01:51:59Z"
+    },
+    "schema": {
+      "version": "1.0.0"
+    }
+  },
+  "branding": {
+    "display_name": "RV PLIC"
   }
 }

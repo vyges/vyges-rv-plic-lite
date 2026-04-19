@@ -106,17 +106,30 @@ module rv_plic_lite
   assign tl_addr  = {20'b0, tl_i.a_address[11:0]}; // use lower 12 bits
   assign tl_wdata = tl_i.a_data;
 
-  // Always ready — single-cycle response
-  assign tl_o.d_valid  = tl_req;
-  assign tl_o.a_ready  = 1'b1;
-  assign tl_o.d_opcode = tl_we ? AccessAck : AccessAckData;
-  assign tl_o.d_param  = '0;
-  assign tl_o.d_size   = tl_i.a_size;
-  assign tl_o.d_source = tl_i.a_source;
-  assign tl_o.d_sink   = '0;
-  assign tl_o.d_data   = tl_rdata;
-  assign tl_o.d_user   = '0;
-  assign tl_o.d_error  = tl_err;
+  // Always ready — single-cycle response. Pre-integrity response is built
+  // below then passed through tlul_rsp_intg_gen so rsp_intg + data_intg are
+  // valid for CPU-side tlul_rsp_intg_chk (always-on in opentitan-rv-core-
+  // ibex). See the Bus security domain contract work item in
+  // deckrun-server/docs/todo.md.
+  tlul_pkg::tl_d2h_t tl_o_pre;
+  assign tl_o_pre.d_valid  = tl_req;
+  assign tl_o_pre.a_ready  = 1'b1;
+  assign tl_o_pre.d_opcode = tl_we ? AccessAck : AccessAckData;
+  assign tl_o_pre.d_param  = '0;
+  assign tl_o_pre.d_size   = tl_i.a_size;
+  assign tl_o_pre.d_source = tl_i.a_source;
+  assign tl_o_pre.d_sink   = '0;
+  assign tl_o_pre.d_data   = tl_rdata;
+  assign tl_o_pre.d_user   = '0;
+  assign tl_o_pre.d_error  = tl_err;
+
+  tlul_rsp_intg_gen #(
+    .EnableRspIntgGen  (1),
+    .EnableDataIntgGen (1)
+  ) u_rsp_intg_gen (
+    .tl_i (tl_o_pre),
+    .tl_o (tl_o)
+  );
 
   // ---------------------------------------------------------------------------
   // Read path (combinational)
