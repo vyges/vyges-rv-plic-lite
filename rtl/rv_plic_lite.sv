@@ -92,7 +92,16 @@ module rv_plic_lite
   assign irq_o = irq_valid;
 
   // ---------------------------------------------------------------------------
-  // TL-UL bus logic — single-cycle response
+  // TL-UL bus logic -- registered (1-cycle) response
+  //
+  // Originally this slave asserted d_valid combinationally in the same
+  // cycle as a_valid (0-cycle response). The TL-UL spec allows it, but
+  // the Vyges-generated xbar's OR-mux response path does not tolerate
+  // same-cycle a_valid/d_valid from a slave on back-to-back CPU writes
+  // (first write completes, second stalls -- confirmed on FPGA bring-up:
+  // Ibex hung on PRIO[1] write inside a 14-iter for-loop in plic_init()).
+  // Matching spi-host-lite's registered pattern resolves it -- response
+  // arrives one cycle after the request, through a clean flip-flop.
   // ---------------------------------------------------------------------------
   logic        tl_req;
   logic        tl_we;
@@ -106,22 +115,46 @@ module rv_plic_lite
   assign tl_addr  = {20'b0, tl_i.a_address[11:0]}; // use lower 12 bits
   assign tl_wdata = tl_i.a_data;
 
-  // Always ready — single-cycle response. Pre-integrity response is built
-  // below then passed through tlul_rsp_intg_gen so rsp_intg + data_intg are
-  // valid for CPU-side tlul_rsp_intg_chk (always-on in opentitan-rv-core-
-  // ibex). See the Bus security domain contract work item in
-  // deckrun-server/docs/todo.md.
+  // Registered response state
+  logic        rsp_valid;
+  logic [31:0] rsp_rdata;
+  logic        rsp_error;
+  logic [7:0]  rsp_source_q;
+  logic [2:0]  rsp_size_q;
+  logic        rsp_write_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      rsp_valid    <= 1'b0;
+      rsp_rdata    <= '0;
+      rsp_error    <= 1'b0;
+      rsp_source_q <= '0;
+      rsp_size_q   <= '0;
+      rsp_write_q  <= 1'b0;
+    end else begin
+      rsp_valid    <= tl_req;
+      rsp_rdata    <= tl_rdata;
+      rsp_error    <= tl_err;
+      rsp_source_q <= tl_i.a_source;
+      rsp_size_q   <= tl_i.a_size;
+      rsp_write_q  <= tl_we;
+    end
+  end
+
+  // Pre-integrity response; tlul_rsp_intg_gen below signs rsp_intg +
+  // data_intg so CPU-side tlul_rsp_intg_chk (always-on in opentitan-rv-
+  // core-ibex) accepts this slave's d-channel on a signed TL-UL domain.
   tlul_pkg::tl_d2h_t tl_o_pre;
-  assign tl_o_pre.d_valid  = tl_req;
+  assign tl_o_pre.d_valid  = rsp_valid;
   assign tl_o_pre.a_ready  = 1'b1;
-  assign tl_o_pre.d_opcode = tl_we ? AccessAck : AccessAckData;
+  assign tl_o_pre.d_opcode = rsp_write_q ? AccessAck : AccessAckData;
   assign tl_o_pre.d_param  = '0;
-  assign tl_o_pre.d_size   = tl_i.a_size;
-  assign tl_o_pre.d_source = tl_i.a_source;
+  assign tl_o_pre.d_size   = rsp_size_q;
+  assign tl_o_pre.d_source = rsp_source_q;
   assign tl_o_pre.d_sink   = '0;
-  assign tl_o_pre.d_data   = tl_rdata;
+  assign tl_o_pre.d_data   = rsp_rdata;
   assign tl_o_pre.d_user   = '0;
-  assign tl_o_pre.d_error  = tl_err;
+  assign tl_o_pre.d_error  = rsp_error;
 
   tlul_rsp_intg_gen #(
     .EnableRspIntgGen  (1),
