@@ -14,7 +14,7 @@
     "digital"
   ],
   "created": "2026-03-28T01:51:59Z",
-  "updated": "2026-03-28T01:51:59Z",
+  "updated": "2026-04-24T18:23:41Z",
   "source": {
     "type": "git",
     "url": "https://github.com/vyges/vyges-rv-plic-lite",
@@ -95,6 +95,44 @@
       "type": "int",
       "default": 32,
       "description": "Number of external interrupt sources (1-32)"
+    }
+  ],
+  "registers": [
+    {
+      "name": "PRIO_BASE",
+      "offset": "0x000",
+      "access": "RW",
+      "description": "Priority array (32 sources, 4 bytes each)"
+    },
+    {
+      "name": "PRIO_END",
+      "offset": "0x07C",
+      "access": "RW",
+      "description": "Last priority slot (source 31)"
+    },
+    {
+      "name": "PENDING",
+      "offset": "0x080",
+      "access": "RO",
+      "description": "Pending bits [31:0]"
+    },
+    {
+      "name": "ENABLE",
+      "offset": "0x100",
+      "access": "RW",
+      "description": "Enable bits [31:0]"
+    },
+    {
+      "name": "THRESHOLD",
+      "offset": "0x200",
+      "access": "RW",
+      "description": "Priority threshold [2:0]"
+    },
+    {
+      "name": "CLAIM_COMPLETE",
+      "offset": "0x204",
+      "access": "RW",
+      "description": "Claim/complete (read claims, write completes)"
     }
   ],
   "performance": {},
