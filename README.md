@@ -37,23 +37,6 @@ Vyges-original IP, no OpenTitan RACL or lifecycle dependencies.
 
 Reading `CLAIM_COMPLETE` when no interrupt is pending returns 0.
 
-## Usage (soc-spec.yaml)
-
-```yaml
-interrupt_controller:
-  ip: vyges-rv-plic-lite
-  version: "0.1.0"
-  params:
-    NUM_SOURCES: 16
-  connections:
-    tl_i: xbar.plic_tl
-    intr_src_i: "{gpio_intr, uart_intr, timer_intr}"
-    irq_o: cpu.meip
-  address:
-    base: 0x4800_0000
-    size: 0x1000
-```
-
 ## Dependencies
 
 - **opentitan-tlul** -- provides `tlul_pkg` (TL-UL type definitions and opcodes).
