@@ -75,20 +75,97 @@ module rv_plic_lite
   logic [2:0]  best_prio;
   logic        irq_valid;
 
-  always_comb begin
-    best_id   = '0;
-    best_prio = '0;
-    irq_valid = 1'b0;
+  // Priority arbiter — binary tree reduction.
+  //
+  // The original implementation was a sequential `for` loop with a
+  // loop-carried `best_prio`/`best_id` accumulator. Synthesis is forced
+  // into a 14-deep serial comparator chain (one comparator per source)
+  // because each iteration depends on the previous iteration's accumulator
+  // — Vivado measured 45 logic levels of LUT for the full path through
+  // PLIC into the bus, which couldn't close timing at 50 MHz on Arty A7
+  // and was within ~1.5 ns of failing at 40 MHz, leaving zero headroom
+  // for the 4 more APB peripherals coming in steps 3-5 of the goal spec.
+  //
+  // Tree reduction collapses depth to ⌈log₂(NUM_SOURCES)⌉ levels — for
+  // NUM_SOURCES=14 that's 4 levels of comparator + mux instead of 14,
+  // restoring slack at 50 MHz on FPGA and matching what production
+  // arbiters (e.g. OpenTitan's `prim_arbiter_tree`) do.
+  //
+  // Tie-break: lower-index source wins (matches original loop semantics
+  // where strictly-greater priority was needed to override a previous
+  // candidate, so the first source at the max prio kept the win).
+  // Achieved by using `>=` so the LEFT pair member (lower index) wins
+  // any equal-priority comparison.
+  localparam int unsigned LEVELS = (NUM_SOURCES <= 1) ? 1 : $clog2(NUM_SOURCES);
+  localparam int unsigned PADDED = 1 << LEVELS;
 
+  // Per-source effective priority: prio[i] when source is eligible,
+  // 0 otherwise. Drops the dependency on the running accumulator.
+  logic [2:0] elig_prio [NUM_SOURCES];
+  always_comb begin
     for (int unsigned i = 0; i < NUM_SOURCES; i++) begin
-      if (pending[i] && enable[i] && (prio[i] > threshold) && (prio[i] > best_prio)) begin
-        best_id   = 5'(i);
-        best_prio = prio[i];
-        irq_valid = 1'b1;
+      elig_prio[i] = (pending[i] && enable[i] && (prio[i] > threshold)) ? prio[i] : 3'd0;
+    end
+  end
+
+  // Tree reduction — level 0 loads (padded) inputs, each subsequent
+  // level halves the count by pairwise max selection.
+  logic [2:0] tree_prio [LEVELS+1][PADDED];
+  logic [4:0] tree_id   [LEVELS+1][PADDED];
+
+  always_comb begin
+    // Load level 0 — pad slots beyond NUM_SOURCES with prio=0.
+    for (int unsigned i = 0; i < PADDED; i++) begin
+      tree_prio[0][i] = (i < NUM_SOURCES) ? elig_prio[i] : 3'd0;
+      tree_id[0][i]   = 5'(i);
+    end
+    // Reduce — pairwise max per level. `>=` keeps the lower-index winner.
+    for (int unsigned lvl = 1; lvl <= LEVELS; lvl++) begin
+      for (int unsigned i = 0; i < (PADDED >> lvl); i++) begin
+        if (tree_prio[lvl-1][2*i] >= tree_prio[lvl-1][2*i+1]) begin
+          tree_prio[lvl][i] = tree_prio[lvl-1][2*i];
+          tree_id[lvl][i]   = tree_id[lvl-1][2*i];
+        end else begin
+          tree_prio[lvl][i] = tree_prio[lvl-1][2*i+1];
+          tree_id[lvl][i]   = tree_id[lvl-1][2*i+1];
+        end
       end
     end
   end
 
+  // Output pipeline — register the tree's combinational max into best_prio /
+  // best_id before driving irq_o. Mirrors OpenTitan rv_plic_target.sv.tpl
+  // (commit 8007f614bd52d7ac557e5e3253489f0bf7b820c5), which has the same
+  // tree topology as above but flops the result through {irq_d/irq_id_d →
+  // irq_q/irq_id_q} on the same clock edge that updates pending/claimed.
+  //
+  // Why the register is required (caught 2026-04-26 on edge_sensor_dsp
+  // step 2 bring-up): a pure-combinational `assign irq_o = ...` glitches
+  // as priorities propagate through the tree's compare/mux stages on each
+  // clock edge. Ibex sees those glitches on `irq_external_i` and either
+  // re-enters the trap path or fails to honor a concurrent debug_req,
+  // leaving the hart visible-but-unhaltable on JTAG (dmstatus stuck at
+  // allrunning=1). With the registered output, irq_o transitions exactly
+  // once per priority change and halt engages cleanly.
+  //
+  // Cost: +1 cycle latency from a source asserting its IRQ to irq_o going
+  // high — same latency OpenTitan ships, irrelevant at SoC scale.
+  logic [2:0] tree_best_prio;
+  logic [4:0] tree_best_id;
+  assign tree_best_prio = tree_prio[LEVELS][0];
+  assign tree_best_id   = tree_id[LEVELS][0];
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      best_prio <= 3'd0;
+      best_id   <= 5'd0;
+    end else begin
+      best_prio <= tree_best_prio;
+      best_id   <= tree_best_id;
+    end
+  end
+
+  assign irq_valid = (best_prio != 3'd0);
   assign irq_o = irq_valid;
 
   // ---------------------------------------------------------------------------
