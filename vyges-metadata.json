@@ -14,7 +14,7 @@
     "digital"
   ],
   "created": "2026-03-28T01:51:59Z",
-  "updated": "2026-04-24T18:23:41Z",
+  "updated": "2026-06-09T21:37:17Z",
   "source": {
     "type": "git",
     "url": "https://github.com/vyges/vyges-rv-plic-lite",
@@ -39,7 +39,13 @@
       "protocol": "generic",
       "port": "clk_i",
       "width": 1,
-      "description": "Clock input signal"
+      "description": "Clock input signal",
+      "signals": [
+        {
+          "name": "clk_i",
+          "direction": "input"
+        }
+      ]
     },
     {
       "type": "reset",
@@ -47,7 +53,13 @@
       "protocol": "active-low",
       "port": "rst_ni",
       "width": 1,
-      "description": "Active-low reset signal"
+      "description": "Active-low reset signal",
+      "signals": [
+        {
+          "name": "rst_ni",
+          "direction": "input"
+        }
+      ]
     },
     {
       "type": "bus",
@@ -225,5 +237,6 @@
   },
   "branding": {
     "display_name": "RV PLIC"
-  }
+  },
+  "top_module": "rv_plic_lite"
 }
